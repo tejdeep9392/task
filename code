@@ -1,0 +1,61 @@
+import fitz
+import faiss
+import numpy as np
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+def extract_text(file_path):
+    try:
+        pdf_document = fitz.open(file_path)
+        content = "".join(page.get_text() for page in pdf_document)
+        return content
+    except Exception as error:
+        print(f"Error accessing PDF: {error}")
+        exit(1)
+
+def split_text(content, chunk_size=500, overlap=50):
+    splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=overlap)
+    return splitter.split_text(content)
+
+def build_faiss_index(chunks):
+    print("Indexing chunks in FAISS...")
+    vectors = np.array([[len(chunk)] for chunk in chunks], dtype="float32")
+    index = faiss.IndexFlatL2(1)
+    index.add(vectors)
+    print("Chunks successfully indexed in FAISS database!")
+    return index, chunks
+
+def search_faiss_index(query, index, chunks):
+    results = [chunk for chunk in chunks if query.lower() in chunk.lower()]
+    if results:
+        response = f"Relevant text found:\n\n{chr(10).join(results)}"
+    else:
+        response = "No relevant information found for your query."
+    return response
+
+def main():
+    file_path = "C:/Users/tejdeep/OneDrive/Documents/tej.pdf"
+    print("Extracting text from the PDF...")
+    text_content = extract_text(file_path)
+
+    if not text_content.strip():
+        print("The PDF seems to have no readable content. Please check the file.")
+        return
+
+    print("Splitting text into chunks...")
+    text_chunks = split_text(text_content)
+
+    index, valid_chunks = build_faiss_index(text_chunks)
+
+    print("You can now query the PDF content.")
+    while True:
+        user_query = input("Enter your query (or type 'exit' to quit): ")
+        if user_query.lower() == "exit":
+            print("Exiting program. Goodbye!")
+            break
+        response = search_faiss_index(user_query, index, valid_chunks)
+        print("\nResponse:")
+        print(response)
+        print("-" * 50)
+
+if __name__ == "__main__":
+    main()
